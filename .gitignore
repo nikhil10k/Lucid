@@ -11,3 +11,7 @@ output/
 dist/
 .vscode/
 *.pyc
+
+# Private OOD inputs and fitted artifacts
+private_inputs/
+trust_artifacts/
