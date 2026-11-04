@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "author": "niharika",
+    "date": "2026-11-01T09:25:16.173053+00:00",
+    "git_commit": "d2c35762e6a4c81751a55567682124b6b15386c6",
+    "seed": 42,
+    "checkpoint": "8a151d6440346e8e7c48c0dd84f53fbcbbf4d60b2b5907b90ec49edc16abeae5",
+    "splits_sha256": "196dbf0407a6a3f6b61921ff5ffe25cfa4b4b2c3577cf0111ac0cf92d1fb3f49",
+    "dataset": "real",
+    "n": 874
+  },
+  "results": {
+    "threshold": 718.5755515575196,
+    "val_flag_rate": 0.05034324942791762,
+    "test_flag_rate": 0.043478260869565216,
+    "test_error_auc": [
+      0.5755038240384078,
+      0.45397794032147276,
+      0.7086767882681522
+    ],
+    "test_softmax_error_auc": [
+      0.9225702004131078,
+      0.8692273658718331,
+      0.9657633496309077
+    ],
+    "external_status": "pending"
+  }
+}

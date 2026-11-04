@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "author": "niharika",
+    "date": "2026-11-01T15:48:12.162559+00:00",
+    "git_commit": "70c70a43da877908260a0df3952b1a7c60a39146",
+    "seed": 42,
+    "checkpoint": "8a151d6440346e8e7c48c0dd84f53fbcbbf4d60b2b5907b90ec49edc16abeae5",
+    "splits_sha256": "196dbf0407a6a3f6b61921ff5ffe25cfa4b4b2c3577cf0111ac0cf92d1fb3f49",
+    "dataset": "real_non_chest_photos",
+    "n": 874
+  },
+  "results": {
+    "threshold": 718.5755515575196,
+    "val_flag_rate": 0.05034324942791762,
+    "test_flag_rate": 0.043478260869565216,
+    "test_error_auc": [
+      0.5755038240384078,
+      0.45397794032147276,
+      0.7086767882681522
+    ],
+    "test_softmax_error_auc": [
+      0.9225702004131078,
+      0.8692273658718331,
+      0.9657633496309077
+    ],
+    "external_status": "evaluated",
+    "ood_auc": [
+      1.0,
+      0.9999999999999999,
+      1.0
+    ],
+    "ood_softmax_auc": [
+      0.9702517162471397,
+      0.9587510640310224,
+      0.9805714285714285
+    ],
+    "external_error_status": "No disease labels; OOD sanity check only"
+  }
+}
