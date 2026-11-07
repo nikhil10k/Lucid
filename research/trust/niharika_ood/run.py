@@ -229,6 +229,32 @@ def main():
         text=True,
     ).strip()
 
+    # Classify the experiment so that exploratory results
+    # cannot be mistaken for approved benchmark results.
+    if a.demo:
+        experiment_type = "demo"
+        experiment_note = (
+            "Synthetic demonstration data; not a real evaluation."
+        )
+    elif ext is None:
+        experiment_type = "id_only"
+        experiment_note = "External dataset evaluation is pending."
+    elif str(ext["source"]) == "non_chest_photos":
+        experiment_type = "sanity_check"
+        experiment_note = (
+            f"{len(ext['features'])} non-chest photos; "
+            "sanity check only, not a benchmark."
+        )
+    elif str(ext["source"]) == "kermany_noise_standin":
+        experiment_type = "stand_in"
+        experiment_note = (
+            "Kermany noise stand-in; exploratory result, "
+            "not an approved external benchmark."
+        )
+    else:
+        experiment_type = "external_evaluation"
+        experiment_note = "External dataset evaluation."
+
     meta = dict(
         author="niharika",
         date=datetime.now(timezone.utc).isoformat(),
@@ -237,7 +263,11 @@ def main():
         checkpoint=fingerprint,
         splits_sha256=splits_fingerprint,
         dataset=mode,
-        n=len(ts),
+        n=len(ts),  # Retained for backward compatibility.
+        n_id=len(ts),
+        n_external=0 if ext is None else len(ext["features"]),
+        experiment_type=experiment_type,
+        experiment_note=experiment_note,
     )
 
     (out / "ood.json").write_text(

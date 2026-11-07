@@ -1,18 +1,52 @@
-"""OOD feature extraction using the existing trained ResNet18 checkpoint."""
+
+"""OOD feature extraction using an explicitly selected classifier checkpoint."""
+
+from pathlib import Path
 
 import numpy as np
 import torch
 from PIL import Image
 
 from app.services.inference_service import _load
-from app.ml.common import eval_tf
+from app.ml.common import build_model, eval_tf
 
 
-def _get_model():
-    loaded = _load()
+# Cache explicit checkpoints by their resolved file paths.
+_MODEL_CACHE = {}
 
-    if loaded is None:
-        raise RuntimeError("Existing classifier checkpoint could not be loaded")
+
+def _get_model(checkpoint_path=None):
+    if checkpoint_path is None:
+        # Preserve the application's normal default model-loading behaviour.
+        loaded = _load()
+
+        if loaded is None:
+            raise RuntimeError(
+                "Existing classifier checkpoint could not be loaded"
+            )
+    else:
+        # Load the exact checkpoint selected by the exporter.
+        path = Path(checkpoint_path).resolve()
+
+        if not path.is_file():
+            raise FileNotFoundError(path)
+
+        cache_key = str(path)
+
+        if cache_key not in _MODEL_CACHE:
+            checkpoint = torch.load(path, map_location="cpu")
+
+            model = build_model(
+                checkpoint["arch"],
+                len(checkpoint["classes"]),
+                pretrained=False,
+            )
+            model.load_state_dict(checkpoint["state"])
+            model.eval()
+
+            _MODEL_CACHE[cache_key] = (model, checkpoint)
+
+        loaded = _MODEL_CACHE[cache_key]
 
     model, checkpoint = loaded
 
@@ -27,10 +61,10 @@ def _get_model():
     return model, checkpoint
 
 
-def extract_batch(images):
+def extract_batch(images, checkpoint_path=None):
     """Return logits, probabilities and 512-dimensional features."""
 
-    model, checkpoint = _get_model()
+    model, checkpoint = _get_model(checkpoint_path)
     transform = eval_tf(checkpoint["img_size"])
 
     tensors = []
@@ -83,13 +117,13 @@ def extract_batch(images):
     }
 
 
-def extract_features(images):
-    return extract_batch(images)["features"]
+def extract_features(images, checkpoint_path=None):
+    return extract_batch(images, checkpoint_path)["features"]
 
 
-def predict_logits(images):
-    return extract_batch(images)["logits"]
+def predict_logits(images, checkpoint_path=None):
+    return extract_batch(images, checkpoint_path)["logits"]
 
 
-def predict_proba(images):
-    return extract_batch(images)["probs"]
+def predict_proba(images, checkpoint_path=None):
+    return extract_batch(images, checkpoint_path)["probs"]

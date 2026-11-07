@@ -1,8 +1,10 @@
 
-"""Export real OOD features using the existing frozen classifier.
+"""Export real OOD features using the selected frozen classifier checkpoint.
 
 Run from the repository root.
 Private arrays are written to private_inputs/ and must not be committed.
+Currently supports Kermany train, val and test splits only.
+External-record export is not implemented yet.
 """
 
 import argparse
@@ -27,28 +29,37 @@ def sha256_file(path):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Export Kermany image features for OOD evaluation.",
+        epilog=(
+            "External-record export (CheXpert/NIH) is not implemented. "
+            "Only Kermany train, val and test splits are supported."
+        ),
+    )
 
     parser.add_argument(
         "--split",
         choices=["train", "val", "test"],
         required=True,
+        help="Kermany split to export.",
     )
 
     parser.add_argument(
         "--out",
         required=True,
+        help="Destination NPZ file.",
     )
 
     parser.add_argument(
         "--checkpoint",
         default="models/classifier.pt",
+        help="Exact classifier checkpoint used for feature extraction and hashing.",
     )
 
     args = parser.parse_args()
 
-    split_path = Path("data/processed/splits.json")
-    checkpoint_path = Path(args.checkpoint)
+    split_path = Path("data/processed/splits.json").resolve()
+    checkpoint_path = Path(args.checkpoint).resolve()
 
     if not split_path.is_file():
         raise FileNotFoundError(split_path)
@@ -90,7 +101,11 @@ def main():
             with Image.open(record["path"]) as image:
                 images.append(image.convert("L").copy())
 
-        output = extract_batch(images)
+        # Use the exact checkpoint selected by --checkpoint.
+        output = extract_batch(
+            images,
+            checkpoint_path=checkpoint_path,
+        )
 
         features.append(output["features"])
         logits.append(output["logits"])
@@ -126,11 +141,19 @@ def main():
     if not np.isfinite(features).all():
         raise ValueError("Non-finite feature values")
 
+    if not np.isfinite(logits).all():
+        raise ValueError("Non-finite logits")
+
     if not np.isfinite(probabilities).all():
         raise ValueError("Non-finite probabilities")
 
     if not np.allclose(probabilities.sum(axis=1), 1.0, atol=1e-5):
         raise ValueError("Probability rows do not sum to one")
+
+    # Calculate hashes only after using the same resolved checkpoint
+    # path for feature extraction.
+    checkpoint_hash = sha256_file(checkpoint_path)
+    splits_hash = sha256_file(split_path)
 
     payload = {
         "features": features,
@@ -139,8 +162,8 @@ def main():
         "labels": labels,
         "source": "kermany",
         "split": args.split,
-        "checkpoint_sha256": sha256_file(checkpoint_path),
-        "splits_sha256": sha256_file(split_path),
+        "checkpoint_sha256": checkpoint_hash,
+        "splits_sha256": splits_hash,
     }
 
     destination = Path(args.out)
@@ -155,8 +178,9 @@ def main():
     print("Feature shape:", features.shape)
     print("Logit shape:", logits.shape)
     print("Probability shape:", probabilities.shape)
-    print("Checkpoint SHA256:", payload["checkpoint_sha256"])
-    print("Splits SHA256:", payload["splits_sha256"])
+    print("Checkpoint used:", checkpoint_path)
+    print("Checkpoint SHA256:", checkpoint_hash)
+    print("Splits SHA256:", splits_hash)
 
 
 if __name__ == "__main__":

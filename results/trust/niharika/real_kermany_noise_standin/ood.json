@@ -7,7 +7,11 @@
     "checkpoint": "8a151d6440346e8e7c48c0dd84f53fbcbbf4d60b2b5907b90ec49edc16abeae5",
     "splits_sha256": "196dbf0407a6a3f6b61921ff5ffe25cfa4b4b2c3577cf0111ac0cf92d1fb3f49",
     "dataset": "real_kermany_noise_standin",
-    "n": 874
+    "n": 874,
+    "n_id": 874,
+    "n_external": 874,
+    "experiment_type": "stand_in",
+    "experiment_note": "Kermany noise stand-in; exploratory result, not an approved external benchmark."
   },
   "results": {
     "threshold": 718.5755515575196,
