@@ -1,3 +1,4 @@
+
 import numpy as np
 import pytest
 
@@ -8,6 +9,7 @@ from research.trust.chitthara_calibration.calibration import (
     softmax,
     fit_temperature,
 )
+from research.trust.chitthara_calibration.run import validate_metadata
 
 
 def test_known_metrics():
@@ -30,3 +32,73 @@ def test_temperature_and_class():
 
     with pytest.raises(ValueError):
         fit_temperature(z, y, split="test")
+
+
+def make_metadata(split):
+    return {
+        "split": np.array(split),
+        "checkpoint_sha256": np.array("abc123"),
+        "splits_sha256": np.array("split123"),
+        "classes": np.array(["NORMAL", "PNEUMONIA"]),
+        "preprocessing_version": np.array("1.0"),
+    }
+
+
+def test_valid_metadata():
+    val = make_metadata("val")
+    test = make_metadata("test")
+
+    assert validate_metadata(val, test) is True
+
+
+def test_missing_metadata():
+    val = make_metadata("val")
+    test = make_metadata("test")
+    del test["splits_sha256"]
+
+    with pytest.raises(ValueError, match="Missing splits_sha256"):
+        validate_metadata(val, test)
+
+
+def test_mismatched_checkpoint():
+    val = make_metadata("val")
+    test = make_metadata("test")
+    test["checkpoint_sha256"] = np.array("different")
+
+    with pytest.raises(ValueError, match="Checkpoint mismatch"):
+        validate_metadata(val, test)
+
+
+def test_mismatched_split_hash():
+    val = make_metadata("val")
+    test = make_metadata("test")
+    test["splits_sha256"] = np.array("different")
+
+    with pytest.raises(ValueError, match="Split file hash mismatch"):
+        validate_metadata(val, test)
+
+
+def test_wrong_split():
+    val = make_metadata("test")
+    test = make_metadata("test")
+
+    with pytest.raises(ValueError, match="Expected validation split"):
+        validate_metadata(val, test)
+
+
+def test_wrong_class_order():
+    val = make_metadata("val")
+    test = make_metadata("test")
+    test["classes"] = np.array(["PNEUMONIA", "NORMAL"])
+
+    with pytest.raises(ValueError, match="Unexpected class order"):
+        validate_metadata(val, test)
+
+
+def test_wrong_preprocessing_version():
+    val = make_metadata("val")
+    test = make_metadata("test")
+    test["preprocessing_version"] = np.array("2.0")
+
+    with pytest.raises(ValueError, match="Preprocessing version mismatch"):
+        validate_metadata(val, test)
