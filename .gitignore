@@ -11,5 +11,9 @@ output/
 dist/
 .vscode/
 *.pyc
-trust_artifacts/ 
-results/ 
+
+trust_artifacts/
+results/
+private_inputs/
+*.npz
+*.npy
