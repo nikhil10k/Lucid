@@ -11,3 +11,5 @@ output/
 dist/
 .vscode/
 *.pyc
+trust_artifacts/ 
+results/ 
