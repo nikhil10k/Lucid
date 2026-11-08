@@ -1,4 +1,3 @@
-
 import numpy as np
 import pytest
 
@@ -102,3 +101,39 @@ def test_wrong_preprocessing_version():
 
     with pytest.raises(ValueError, match="Preprocessing version mismatch"):
         validate_metadata(val, test)
+
+
+def test_checkpoint_selection(tmp_path, monkeypatch):
+    from pathlib import Path
+    import torch
+    import app.ml.predict as predict
+
+    checkpoint = tmp_path / "selected.pt"
+    checkpoint.write_bytes(b"test")
+
+    loaded_paths = []
+
+    def fake_load(path, **kwargs):
+        loaded_paths.append(Path(path))
+        return {
+            "classes": ["NORMAL", "PNEUMONIA"],
+            "arch": "resnet18",
+            "preprocessing_version": predict.PREPROC_VERSION,
+            "state": {},
+            "img_size": 224,
+        }
+
+    class FakeModel(torch.nn.Module):
+        def load_state_dict(self, state):
+            pass
+
+    monkeypatch.setattr(torch, "load", fake_load)
+    monkeypatch.setattr(predict, "build_model", lambda *args: FakeModel())
+    monkeypatch.setattr(predict, "eval_tf", lambda size: None)
+
+    predict._load.cache_clear()
+    predict._load(str(checkpoint))
+
+    assert loaded_paths == [checkpoint]
+
+    predict._load.cache_clear()
