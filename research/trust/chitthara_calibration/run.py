@@ -7,6 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
+from app.ml.common import PREPROC_VERSION
+
 from .calibration import (
     softmax,
     fit_temperature,
@@ -17,7 +19,6 @@ from research.trust.eval_signal import signal_error_auc
 
 
 EXPECTED_CLASSES = ["NORMAL", "PNEUMONIA"]
-EXPECTED_PREPROCESSING_VERSION = "1.0"
 
 
 def validate_metadata(val, test):
@@ -30,9 +31,7 @@ def validate_metadata(val, test):
     )
 
     for name, data in (("validation", val), ("test", test)):
-        available_keys = (
-            data.files if hasattr(data, "files") else data.keys()
-        )
+        available_keys = data.files if hasattr(data, "files") else data.keys()
 
         for key in required:
             if key not in available_keys:
@@ -54,15 +53,37 @@ def validate_metadata(val, test):
         if data["classes"].tolist() != EXPECTED_CLASSES:
             raise ValueError(f"Unexpected class order in {name} data")
 
-        if (
-            str(data["preprocessing_version"])
-            != EXPECTED_PREPROCESSING_VERSION
-        ):
+        if str(data["preprocessing_version"]) != str(PREPROC_VERSION):
             raise ValueError(
                 f"Preprocessing version mismatch in {name} data"
             )
 
     return True
+
+
+def validate_external(data, fingerprint, metadata):
+    required = (
+        "checkpoint_sha256",
+        "splits_sha256",
+        "classes",
+        "preprocessing_version",
+    )
+
+    for key in required:
+        if key not in data.files:
+            raise ValueError(f"Missing {key} in external data")
+
+    if str(data["checkpoint_sha256"]) != fingerprint:
+        raise ValueError("External checkpoint mismatch")
+
+    if str(data["splits_sha256"]) != metadata["splits_sha256"]:
+        raise ValueError("External split file hash mismatch")
+
+    if data["classes"].tolist() != EXPECTED_CLASSES:
+        raise ValueError("Unexpected class order in external data")
+
+    if str(data["preprocessing_version"]) != str(PREPROC_VERSION):
+        raise ValueError("External preprocessing version mismatch")
 
 
 def main():
@@ -94,6 +115,11 @@ def main():
         zt, yt = sample()
 
         fingerprint = "synthetic"
+        metadata = {
+            "splits_sha256": "synthetic",
+            "classes": EXPECTED_CLASSES,
+            "preprocessing_version": PREPROC_VERSION,
+        }
 
     else:
         if not a.val or not a.test:
@@ -103,11 +129,15 @@ def main():
             validate_metadata(v, t)
 
             fingerprint = str(v["checkpoint_sha256"])
+            metadata = {
+                "splits_sha256": str(v["splits_sha256"]),
+                "classes": v["classes"].tolist(),
+                "preprocessing_version": str(v["preprocessing_version"]),
+            }
 
             zv, yv = v["logits"], v["labels"]
             zt, yt = t["logits"], t["labels"]
 
-    # Calibration starts only after metadata validation.
     T = fit_temperature(zv, yv)
 
     before = report(zt, yt, 1)
@@ -139,13 +169,7 @@ def main():
 
     if a.external:
         with np.load(a.external) as e:
-            if "checkpoint_sha256" not in e.files:
-                raise ValueError(
-                    "Missing checkpoint hash in external data"
-                )
-
-            if str(e["checkpoint_sha256"]) != fingerprint:
-                raise ValueError("External checkpoint mismatch")
+            validate_external(e, fingerprint, metadata)
 
             result["external"] = report(
                 e["logits"],
@@ -165,7 +189,9 @@ def main():
         seed=42,
         checkpoint=fingerprint,
         dataset="synthetic" if a.demo else "kermany_test",
+        status="demo" if a.demo else "preliminary",
         n=len(yt),
+        **metadata,
     )
 
     (out / "calibration.json").write_text(
@@ -187,6 +213,7 @@ def main():
                     seed=42,
                     date=meta["date"],
                     checkpoint_sha256=fingerprint,
+                    **metadata,
                 ),
                 indent=2,
             )

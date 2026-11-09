@@ -1,5 +1,8 @@
+
 import numpy as np
 import pytest
+
+from app.ml.common import PREPROC_VERSION
 
 from research.trust.chitthara_calibration.calibration import (
     ece,
@@ -8,7 +11,11 @@ from research.trust.chitthara_calibration.calibration import (
     softmax,
     fit_temperature,
 )
-from research.trust.chitthara_calibration.run import validate_metadata
+
+from research.trust.chitthara_calibration.run import (
+    validate_metadata,
+    validate_external,
+)
 
 
 def test_known_metrics():
@@ -39,7 +46,7 @@ def make_metadata(split):
         "checkpoint_sha256": np.array("abc123"),
         "splits_sha256": np.array("split123"),
         "classes": np.array(["NORMAL", "PNEUMONIA"]),
-        "preprocessing_version": np.array("1.0"),
+        "preprocessing_version": np.array(PREPROC_VERSION),
     }
 
 
@@ -137,3 +144,65 @@ def test_checkpoint_selection(tmp_path, monkeypatch):
     assert loaded_paths == [checkpoint]
 
     predict._load.cache_clear()
+
+
+class FakeNPZ(dict):
+    @property
+    def files(self):
+        return list(self.keys())
+
+
+def make_external_metadata():
+    return FakeNPZ({
+        "checkpoint_sha256": np.array("abc123"),
+        "splits_sha256": np.array("split123"),
+        "classes": np.array(["NORMAL", "PNEUMONIA"]),
+        "preprocessing_version": np.array(PREPROC_VERSION),
+    })
+
+
+def test_valid_external_metadata():
+    external = make_external_metadata()
+    metadata = {"splits_sha256": "split123"}
+
+    validate_external(external, "abc123", metadata)
+
+
+def test_external_checkpoint_mismatch():
+    external = make_external_metadata()
+    external["checkpoint_sha256"] = np.array("wrong")
+
+    with pytest.raises(ValueError, match="External checkpoint mismatch"):
+        validate_external(external, "abc123", {"splits_sha256": "split123"})
+
+
+def test_external_split_hash_mismatch():
+    external = make_external_metadata()
+    external["splits_sha256"] = np.array("wrong")
+
+    with pytest.raises(ValueError, match="External split file hash mismatch"):
+        validate_external(external, "abc123", {"splits_sha256": "split123"})
+
+
+def test_external_wrong_class_order():
+    external = make_external_metadata()
+    external["classes"] = np.array(["PNEUMONIA", "NORMAL"])
+
+    with pytest.raises(ValueError, match="Unexpected class order"):
+        validate_external(external, "abc123", {"splits_sha256": "split123"})
+
+
+def test_external_wrong_preprocessing():
+    external = make_external_metadata()
+    external["preprocessing_version"] = np.array("wrong")
+
+    with pytest.raises(ValueError, match="External preprocessing version mismatch"):
+        validate_external(external, "abc123", {"splits_sha256": "split123"})
+
+
+def test_external_missing_metadata():
+    external = make_external_metadata()
+    del external["classes"]
+
+    with pytest.raises(ValueError, match="Missing classes"):
+        validate_external(external, "abc123", {"splits_sha256": "split123"})

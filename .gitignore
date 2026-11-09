@@ -16,7 +16,7 @@ trust_artifacts/
 results/
 private_inputs/
 *.npz
-*.npydata/test/
+*.npy
 data/test/
 data/processed_new/
 models/*.history.json
