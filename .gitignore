@@ -15,3 +15,11 @@ dist/
 # Private OOD inputs and fitted artifacts
 private_inputs/
 trust_artifacts/
+results/
+*.npz
+*.npy
+data/test/
+data/processed_new/
+models/*.history.json
+models/history_*.png
+models/metrics.json

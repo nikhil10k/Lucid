@@ -8,11 +8,66 @@ import torch
 from PIL import Image
 
 from app.services.inference_service import _load
-from app.ml.common import build_model, eval_tf
+from app.ml.common import PREPROC_VERSION, build_model, eval_tf
 
+
+EXPECTED_CLASSES = ["NORMAL", "PNEUMONIA"]
+EXPECTED_ARCH = "resnet18"
 
 # Cache explicit checkpoints by their resolved file paths.
 _MODEL_CACHE = {}
+
+
+def _validate_checkpoint_metadata(checkpoint):
+    """Reject checkpoints incompatible with the shared inference pipeline."""
+
+    if not isinstance(checkpoint, dict):
+        raise ValueError("Checkpoint must contain a metadata dictionary")
+
+    required = [
+        "state",
+        "arch",
+        "classes",
+        "img_size",
+        "preprocessing_version",
+    ]
+
+    missing = [
+        key for key in required
+        if key not in checkpoint
+    ]
+
+    if missing:
+        raise ValueError(
+            "Checkpoint is missing required metadata: "
+            + ", ".join(missing)
+        )
+
+    if checkpoint["arch"] != EXPECTED_ARCH:
+        raise ValueError(
+            f"Expected {EXPECTED_ARCH}, found {checkpoint['arch']}"
+        )
+
+    if checkpoint["classes"] != EXPECTED_CLASSES:
+        raise ValueError(
+            f"Expected class order {EXPECTED_CLASSES}"
+        )
+
+    if checkpoint["preprocessing_version"] != PREPROC_VERSION:
+        raise ValueError(
+            "Preprocessing version mismatch: "
+            f"expected {PREPROC_VERSION}, "
+            f"found {checkpoint['preprocessing_version']}"
+        )
+
+    image_size = checkpoint["img_size"]
+
+    if (
+        isinstance(image_size, bool)
+        or not isinstance(image_size, int)
+        or image_size <= 0
+    ):
+        raise ValueError("Invalid checkpoint image size")
 
 
 def _get_model(checkpoint_path=None):
@@ -24,6 +79,9 @@ def _get_model(checkpoint_path=None):
             raise RuntimeError(
                 "Existing classifier checkpoint could not be loaded"
             )
+
+        model, checkpoint = loaded
+
     else:
         # Load the exact checkpoint selected by the exporter.
         path = Path(checkpoint_path).resolve()
@@ -36,6 +94,8 @@ def _get_model(checkpoint_path=None):
         if cache_key not in _MODEL_CACHE:
             checkpoint = torch.load(path, map_location="cpu")
 
+            _validate_checkpoint_metadata(checkpoint)
+
             model = build_model(
                 checkpoint["arch"],
                 len(checkpoint["classes"]),
@@ -46,17 +106,10 @@ def _get_model(checkpoint_path=None):
 
             _MODEL_CACHE[cache_key] = (model, checkpoint)
 
-        loaded = _MODEL_CACHE[cache_key]
+        model, checkpoint = _MODEL_CACHE[cache_key]
 
-    model, checkpoint = loaded
-
-    if checkpoint["arch"] != "resnet18":
-        raise ValueError(
-            f"Expected resnet18, found {checkpoint['arch']}"
-        )
-
-    if checkpoint["classes"] != ["NORMAL", "PNEUMONIA"]:
-        raise ValueError("Unexpected checkpoint class order")
+    # Validate both the default and explicitly selected checkpoint paths.
+    _validate_checkpoint_metadata(checkpoint)
 
     return model, checkpoint
 

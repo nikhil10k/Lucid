@@ -7,12 +7,42 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from app.ml.common import PREPROC_VERSION
+
+EXPECTED_CLASSES = ["NORMAL", "PNEUMONIA"]
 
 from .mahalanobis import *
 from .baselines import max_softmax_score
 from research.trust.eval_signal import signal_error_auc
 
+def _validate_export_metadata(data, name):
+    required = ["classes", "preprocessing_version"]
 
+    missing = [
+        key for key in required
+        if key not in data
+    ]
+
+    if missing:
+        raise ValueError(
+            f"{name} export missing required metadata: {missing}"
+        )
+
+    classes = np.asarray(data["classes"]).tolist()
+
+    if classes != EXPECTED_CLASSES:
+        raise ValueError(
+            f"{name} export has incorrect class order. "
+            f"Expected class order {EXPECTED_CLASSES}, got {classes}"
+        )
+
+    version = str(data["preprocessing_version"])
+
+    if version != PREPROC_VERSION:
+        raise ValueError(
+            f"{name} export preprocessing version mismatch. "
+            f"Expected {PREPROC_VERSION}, got {version}"
+        )
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--demo", action="store_true")
@@ -57,6 +87,12 @@ def main():
                 return dict(z)
 
         tr, va, te = map(load, [a.train, a.val, a.test])
+        for data, name in [
+            (tr, "train"),
+            (va, "validation"),
+            (te, "test"),
+        ]:
+            _validate_export_metadata(data, name)
 
         for data, split in [
             (tr, "train"),
@@ -83,6 +119,8 @@ def main():
             raise ValueError("Dataset split mismatch")
 
         ext = load(a.external) if a.external else None
+        if ext is not None:
+            _validate_export_metadata(ext, "external")
 
         if (
             ext is not None
@@ -288,6 +326,8 @@ def main():
             fit_on="kermany_train",
             checkpoint_sha256=fingerprint,
             splits_sha256=splits_fingerprint,
+            classes=np.asarray(EXPECTED_CLASSES),
+            preprocessing_version=PREPROC_VERSION,
         )
 
     print(json.dumps(result, indent=2))
