@@ -12,9 +12,10 @@ dist/
 .vscode/
 *.pyc
 
+# Private OOD inputs and fitted artifacts
+private_inputs/
 trust_artifacts/
 results/
-private_inputs/
 *.npz
 *.npy
 data/test/

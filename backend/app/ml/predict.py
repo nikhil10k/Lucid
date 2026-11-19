@@ -1,4 +1,3 @@
-
 from functools import lru_cache
 from pathlib import Path
 
@@ -10,6 +9,37 @@ from app.ml.common import build_model, eval_tf, PREPROC_VERSION
 from app.config import settings
 
 
+def _validate_checkpoint_metadata(ck):
+    if not isinstance(ck, dict):
+        raise ValueError("Checkpoint must contain a metadata dictionary")
+
+    required = ["state", "arch", "classes", "img_size", "preprocessing_version"]
+    missing = [key for key in required if key not in ck]
+
+    if missing:
+        raise ValueError(
+            "Checkpoint is missing required metadata: " + ", ".join(missing)
+        )
+
+    if ck["classes"] != ["NORMAL", "PNEUMONIA"]:
+        raise ValueError(
+            "Expected class order ['NORMAL', 'PNEUMONIA']"
+        )
+
+    if ck["arch"] != "resnet18":
+        raise ValueError("Expected resnet18 architecture")
+
+    if ck["preprocessing_version"] != PREPROC_VERSION:
+        raise ValueError("Preprocessing version mismatch")
+
+    if (
+        isinstance(ck["img_size"], bool)
+        or not isinstance(ck["img_size"], int)
+        or ck["img_size"] <= 0
+    ):
+        raise ValueError("Invalid checkpoint image size")
+
+
 @lru_cache(maxsize=4)
 def _load(checkpoint_path=None):
     path = Path(checkpoint_path or settings.model_path)
@@ -19,11 +49,7 @@ def _load(checkpoint_path=None):
 
     ck = torch.load(path, map_location="cpu", weights_only=True)
 
-    if ck["classes"] != ["NORMAL", "PNEUMONIA"] or ck["arch"] != "resnet18":
-        raise ValueError("Expected binary ResNet18 with NORMAL first")
-
-    if ck["preprocessing_version"] != PREPROC_VERSION:
-        raise ValueError("Preprocessing version mismatch")
+    _validate_checkpoint_metadata(ck)
 
     model = build_model("resnet18", 2, False)
     model.load_state_dict(ck["state"])
