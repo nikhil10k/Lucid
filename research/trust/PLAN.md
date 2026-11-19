@@ -52,3 +52,13 @@ Ensemble members have separate checkpoints; record each member's hash.
 - Complete Chithara's Seed 3 handoff to Disha.
 - Resolve outstanding calibration and OOD review findings.
 - Run shared evaluation after the required inputs are verified.
+
+## Confirmed shared baseline — 19 November 2026
+- Approved classifier: models/classifier.approved.pt
+- SHA256: 040dca03ae91682de538f824339264162afbc741423265b6452a66081997a510
+- Split SHA256: 196dbf0407a6a3f6b61921ff5ffe25cfa4b4b2c3577cf0111ac0cf92d1fb3f49
+- Class order: NORMAL=0, PNEUMONIA=1
+- Preprocessing version: 1.0
+- Checkpoint hash verified; original model preserved.
+- Calibration, ensemble and regenerated OOD handoffs pending.
+- Real-artifact integration testing and final evaluation pending.

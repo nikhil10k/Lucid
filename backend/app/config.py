@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class Settings(BaseSettings):
     max_upload_mb: int = 20
-    model_path: str = str(ROOT / "models/classifier.pt")
+    model_path: str = str(ROOT / "models/classifier.approved.pt")
     metrics_path: str = str(ROOT / "models/metrics.json")
     dataset_stats_path: str = str(ROOT / "data/processed/stats.json")
     db_url: str = f"sqlite:///{ROOT / 'data/app.db'}"
